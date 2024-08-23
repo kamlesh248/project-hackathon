@@ -7,6 +7,8 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { setDoc, doc, getDoc } from 'firebase/firestore'
 import { useAuth } from '../../AuthContext'
+import { toast, ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import './RegisterPage.css'
 
 const RegisterPage = () => {
@@ -21,6 +23,11 @@ const RegisterPage = () => {
     const password = e.target.password.value
     const name = e.target.name?.value
 
+    if (type === 'signup' && password.length < 6) {
+      toast.error('Please enter a password with at least 6 characters')
+      return
+    }
+
     try {
       setIsLoading(true)
       if (type === 'signup') {
@@ -31,35 +38,40 @@ const RegisterPage = () => {
           await setDoc(doc(db, 'users', user.uid), {
             email: user.email,
             displayName: name,
-            isAdmin: false, 
+            isAdmin: false,
           })
           setUserName(name)
           history('/home')
         }
       } else {
         await signInWithEmailAndPassword(auth, email, password)
-        const user = auth.currentUser
-
-        if (user) {
-          const userDoc = await getDoc(doc(db, 'users', user.uid))
-          if (userDoc.exists()) {
-            const userData = userDoc.data()
-            setUserName(userData.displayName)
-            if (userData.isAdmin) {
-              history('/admin') 
-            } else {
-              history('/home')
+          .then((userCredential) => {
+            const user = userCredential.user
+            const userDoc = getDoc(doc(db, 'users', user.uid))
+            if (userDoc.exists()) {
+              const userData = userDoc.data()
+              setUserName(userData.displayName)
+              if (userData.isAdmin) {
+                history('/admin')
+              } else {
+                history('/home')
+              }
             }
-          }
-        }
+          })
+          .catch((error) => {
+            toast.error('Invalid email or password')
+          })
       }
     } catch (error) {
       console.log(error.message)
+      if (type === 'signin') {
+        toast.error('Invalid email or password')
+      }
     } finally {
       setIsLoading(false)
     }
   }
-``
+
   return (
     <div className="h-screen flex justify-center items-center bg-gray-800">
       <div className="max-w-md w-full bg-gray-900 rounded-lg shadow-md p-4">
@@ -123,6 +135,7 @@ const RegisterPage = () => {
             <h1 className="text-white">Loading...</h1>
           </div>
         )}
+        <ToastContainer position="top-right" />
       </div>
     </div>
   )
